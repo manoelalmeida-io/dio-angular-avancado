@@ -1,6 +1,10 @@
 import { Component, OnInit } from '@angular/core';
+import { FormBuilder, FormGroup } from '@angular/forms';
 import { FilmesService } from 'src/app/core/filmes.service';
+import { ConfigParams } from 'src/app/shared/models/config-params';
 import { Filme } from 'src/app/shared/models/filme';
+
+import { debounceTime } from 'rxjs/operators';
 
 @Component({
   selector: 'dio-listagem-filmes',
@@ -9,14 +13,43 @@ import { Filme } from 'src/app/shared/models/filme';
 })
 export class ListagemFilmesComponent implements OnInit {
 
-  readonly qtdPagina = 8;
-  pagina = 0;
-  filmes: Filme[] = [];
+  readonly semFoto = 'https://www.termoparts.com.br/wp-content/uploads/2017/10/no-image.jpg';
 
-  constructor(private filmeService: FilmesService) { }
+  config: ConfigParams = {
+    pagina: 0,
+    limite: 8
+  }
+  filmes: Filme[] = [];
+  filtrosListagem: FormGroup;
+  generos: string[];
+
+  constructor(private filmeService: FilmesService,
+    private fb: FormBuilder) { }
 
   ngOnInit(): void {
-    console.log(this.qtdPagina, this.pagina);
+    this.filtrosListagem = this.fb.group({
+      texto: [''],
+      genero: ['']
+    });
+
+    this.filtrosListagem.get('texto').valueChanges
+      .pipe(debounceTime(400))
+      .subscribe((val: string) => {
+        
+      this.config.pesquisa = val;
+      this.resetarConsulta();
+    });
+
+    this.filtrosListagem.get('genero').valueChanges
+      .pipe(debounceTime(400))
+      .subscribe((val: string) => {
+      
+      this.config.campo = { tipo: 'genero', valor: val };
+      this.resetarConsulta();
+    });
+
+    this.generos = [ 'Ação', 'Romance', 'Aventura', 'Terror', 'Ficção científica', 'Comédia', 'Drama' ];
+
     this.listarFilmes();
   }
 
@@ -25,9 +58,15 @@ export class ListagemFilmesComponent implements OnInit {
   }
 
   listarFilmes(): void {
-    this.pagina++;
-    this.filmeService.listar(this.pagina, this.qtdPagina).subscribe((filmes: Filme[]) => {
+    this.config.pagina++;
+    this.filmeService.listar(this.config).subscribe((filmes: Filme[]) => {
       this.filmes.push(...filmes);
     });
+  }
+
+  private resetarConsulta(): void {
+    this.config.pagina = 0;
+    this.filmes = [];
+    this.listarFilmes();
   }
 }
